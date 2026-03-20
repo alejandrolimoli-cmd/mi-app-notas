@@ -7,6 +7,7 @@
 
     <h1>📝 Mis Notas</h1>
 
+    <input type="text" id="usuarioInput" placeholder="Tu nombre" style="margin-bottom: 10px;">
     <input type="text" id="notaInput" placeholder="Escribe una nota">
     <button onclick="agregarNota()">Agregar</button>
 
@@ -14,7 +15,13 @@
 
     <script>
         async function agregarNota() {
+            const usuario = document.getElementById('usuarioInput').value;
             const input = document.getElementById('notaInput');
+
+            if (!usuario.trim()) {
+                alert('Por favor ingresa tu nombre');
+                return;
+            }
 
             if (!input.value.trim()) {
                 alert('La nota no puede estar vacía');
@@ -27,7 +34,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ texto: input.value })
+                    body: JSON.stringify({ usuario: usuario.trim(), texto: input.value })
                 });
 
                 if (!res.ok) {
@@ -66,9 +73,21 @@
 
                 notas.forEach((nota, index) => {
                     const li = document.createElement('li');
+                    li.style.marginBottom = '15px';
+                    li.style.padding = '10px';
+                    li.style.backgroundColor = '#f5f5f5';
+                    li.style.borderRadius = '5px';
 
+                    // Usuario
+                    const usuario = document.createElement('div');
+                    usuario.textContent = `👤 ${nota.usuario || 'Anónimo'}`;
+                    usuario.style.fontWeight = 'bold';
+                    usuario.style.marginBottom = '5px';
+                    usuario.style.color = '#666';
+
+                    // Texto de la nota
                     const texto = document.createElement('span');
-                    texto.textContent = nota;
+                    texto.textContent = nota.texto;
 
                     const btnEliminar = document.createElement('button');
                     btnEliminar.textContent = '❌';
@@ -98,7 +117,7 @@
                     btnEditar.style.marginLeft = '10px';
 
                     btnEditar.onclick = async () => {
-                        const nuevoTexto = prompt('Editar nota:', nota);
+                        const nuevoTexto = prompt('Editar nota:', nota.texto);
 
                         if (nuevoTexto) {
                             try {
@@ -124,6 +143,7 @@
                         }
                     };
 
+                    li.appendChild(usuario);
                     li.appendChild(texto);
                     li.appendChild(btnEliminar);
                     li.appendChild(btnEditar);

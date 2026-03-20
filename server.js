@@ -44,9 +44,12 @@ app.get('/', (req, res) => {
 app.get('/notas', async (req, res) => {
     try {
         const notas = await db.collection(COLLECTION_NAME).find({}).toArray();
-        // Retornar solo el texto para compatibilidad con el frontend
-        const notasTexto = notas.map(nota => nota.texto);
-        res.json(notasTexto);
+        // Retornar las notas completas con usuario y texto
+        const notasFormato = notas.map(nota => ({
+            usuario: nota.usuario || 'Anónimo',
+            texto: nota.texto
+        }));
+        res.json(notasFormato);
     } catch (error) {
         console.error('Error al obtener notas:', error);
         res.status(500).json({ error: 'Error al obtener notas' });
@@ -56,9 +59,19 @@ app.get('/notas', async (req, res) => {
 // Agregar nota
 app.post('/agregar', async (req, res) => {
     try {
+        const usuario = req.body.usuario;
         const nota = req.body.texto;
 
-        // Validación
+        // Validación de usuario
+        if (!usuario || typeof usuario !== 'string') {
+            return res.status(400).json({ error: 'El usuario es requerido y debe ser un string' });
+        }
+
+        if (usuario.trim() === '') {
+            return res.status(400).json({ error: 'El usuario no puede estar vacío' });
+        }
+
+        // Validación de nota
         if (!nota || typeof nota !== 'string') {
             return res.status(400).json({ error: 'El texto es requerido y debe ser un string' });
         }
@@ -68,14 +81,18 @@ app.post('/agregar', async (req, res) => {
         }
 
         const result = await db.collection(COLLECTION_NAME).insertOne({
+            usuario: usuario.trim(),
             texto: nota.trim(),
             fecha: new Date()
         });
 
         const notas = await db.collection(COLLECTION_NAME).find({}).toArray();
-        const notasTexto = notas.map(n => n.texto);
+        const notasFormato = notas.map(n => ({
+            usuario: n.usuario || 'Anónimo',
+            texto: n.texto
+        }));
 
-        res.status(201).json({ mensaje: 'Nota agregada', notas: notasTexto });
+        res.status(201).json({ mensaje: 'Nota agregada', notas: notasFormato });
     } catch (error) {
         console.error('Error al agregar nota:', error);
         res.status(500).json({ error: 'Error interno del servidor' });
@@ -99,9 +116,12 @@ app.delete('/eliminar/:index', async (req, res) => {
         await db.collection(COLLECTION_NAME).deleteOne({ _id: notaAEliminar._id });
 
         const notasActualizadas = await db.collection(COLLECTION_NAME).find({}).toArray();
-        const notasTexto = notasActualizadas.map(n => n.texto);
+        const notasFormato = notasActualizadas.map(n => ({
+            usuario: n.usuario || 'Anónimo',
+            texto: n.texto
+        }));
 
-        res.json({ mensaje: 'Nota eliminada', notaEliminada: notaAEliminar.texto, notas: notasTexto });
+        res.json({ mensaje: 'Nota eliminada', notaEliminada: notaAEliminar.texto, notas: notasFormato });
     } catch (error) {
         console.error('Error al eliminar nota:', error);
         res.status(500).json({ error: 'Error interno del servidor' });
@@ -140,9 +160,12 @@ app.put('/editar/:index', async (req, res) => {
         );
 
         const notasActualizadas = await db.collection(COLLECTION_NAME).find({}).toArray();
-        const notasTexto = notasActualizadas.map(n => n.texto);
+        const notasFormato = notasActualizadas.map(n => ({
+            usuario: n.usuario || 'Anónimo',
+            texto: n.texto
+        }));
 
-        res.json({ mensaje: 'Nota editada', notaAnterior, notaNueva: nuevoTexto.trim(), notas: notasTexto });
+        res.json({ mensaje: 'Nota editada', notaAnterior, notaNueva: nuevoTexto.trim(), notas: notasFormato });
     } catch (error) {
         console.error('Error al editar nota:', error);
         res.status(500).json({ error: 'Error interno del servidor' });
