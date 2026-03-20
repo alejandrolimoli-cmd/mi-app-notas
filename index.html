@@ -13,7 +13,14 @@
                 <input type="text" id="loginUsuario" placeholder="Usuario" style="margin-right: 5px; width: 100px;">
                 <input type="password" id="loginPassword" placeholder="Contraseña" style="margin-right: 5px; width: 100px;">
                 <button onclick="login()" style="padding: 5px 10px;">Ingresar</button>
-                <button onclick="mostrarRegistro()" style="padding: 5px 10px;">Registrar</button>
+                <button onclick="toggleRegistro()" style="padding: 5px 10px;">Registrar</button>
+            </div>
+            <div id="registroForm" style="display: none; border-top: 1px solid #ccc; padding-top: 10px; margin-top: 10px;">
+                <h3 style="margin-top: 0;">Crear Cuenta</h3>
+                <input type="text" id="regUsuario" placeholder="Usuario" style="display: block; margin-bottom: 8px; width: 100%; padding: 5px; box-sizing: border-box;">
+                <input type="password" id="regPassword" placeholder="Contraseña" style="display: block; margin-bottom: 8px; width: 100%; padding: 5px; box-sizing: border-box;">
+                <button onclick="registrarNuevo()" style="padding: 5px 10px; width: 100%; background-color: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">Crear Cuenta</button>
+                <button onclick="toggleRegistro()" style="padding: 5px 10px; width: 100%; margin-top: 5px; background-color: #6c757d; color: white; border: none; border-radius: 3px; cursor: pointer;">Volver</button>
             </div>
             <div id="usuarioLogueado" style="display: none;">
                 <span id="usuarioNombre" style="font-weight: bold;"></span>
@@ -80,14 +87,37 @@
             }
         }
 
-        function mostrarRegistro() {
-            const usuario = prompt('Nuevo usuario:');
-            if (!usuario) return;
+        function toggleRegistro() {
+            const loginForm = document.getElementById('loginForm');
+            const registroForm = document.getElementById('registroForm');
+            
+            if (registroForm.style.display === 'none') {
+                loginForm.style.display = 'none';
+                registroForm.style.display = 'block';
+                document.getElementById('regUsuario').focus();
+            } else {
+                loginForm.style.display = 'block';
+                registroForm.style.display = 'none';
+                document.getElementById('regUsuario').value = '';
+                document.getElementById('regPassword').value = '';
+            }
+        }
 
-            const password = prompt('Contraseña:');
-            if (!password) return;
+        async function registrarNuevo() {
+            const usuario = document.getElementById('regUsuario').value.trim();
+            const password = document.getElementById('regPassword').value;
 
-            registrar(usuario, password);
+            if (!usuario) {
+                mostrarMensaje('❌ El usuario no puede estar vacío', 'error');
+                return;
+            }
+
+            if (!password) {
+                mostrarMensaje('❌ La contraseña no puede estar vacía', 'error');
+                return;
+            }
+
+            await registrar(usuario, password);
         }
 
         async function registrar(usuario, password) {
@@ -108,11 +138,12 @@
                 mostrarMensaje('✅ Se registró correctamente. Inicie sesión con sus datos', 'exito');
                 document.getElementById('loginUsuario').value = usuario;
                 document.getElementById('loginPassword').value = '';
-                document.getElementById('loginPassword').focus();
-
+                
                 setTimeout(() => {
+                    toggleRegistro();
+                    document.getElementById('loginPassword').focus();
                     document.getElementById('mensaje').style.display = 'none';
-                }, 4000);
+                }, 1500);
             } catch (error) {
                 console.error('Error en registro:', error);
                 mostrarMensaje('❌ Error al conectar', 'error');
