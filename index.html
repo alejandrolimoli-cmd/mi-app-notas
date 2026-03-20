@@ -7,12 +7,13 @@
 
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h1>📝 Mis Notas</h1>
-        <div id="loginPanel" style="border: 1px solid #ccc; padding: 10px; border-radius: 5px;">
+        <div id="loginPanel" style="border: 1px solid #ccc; padding: 10px; border-radius: 5px; width: 350px;">
+            <div id="mensaje" style="margin-bottom: 10px; padding: 8px; border-radius: 4px; display: none;"></div>
             <div id="loginForm">
-                <input type="text" id="loginUsuario" placeholder="Usuario" style="margin-right: 5px;">
-                <input type="password" id="loginPassword" placeholder="Contraseña" style="margin-right: 5px;">
-                <button onclick="login()">Ingresar</button>
-                <button onclick="mostrarRegistro()">Registrar</button>
+                <input type="text" id="loginUsuario" placeholder="Usuario" style="margin-right: 5px; width: 100px;">
+                <input type="password" id="loginPassword" placeholder="Contraseña" style="margin-right: 5px; width: 100px;">
+                <button onclick="login()" style="padding: 5px 10px;">Ingresar</button>
+                <button onclick="mostrarRegistro()" style="padding: 5px 10px;">Registrar</button>
             </div>
             <div id="usuarioLogueado" style="display: none;">
                 <span id="usuarioNombre" style="font-weight: bold;"></span>
@@ -28,14 +29,144 @@
     <ul id="listaNotas"></ul>
 
     <script>
-        async function agregarNota() {
-            const usuario = document.getElementById('usuarioInput').value;
-            const input = document.getElementById('notaInput');
+        let usuarioActual = null;
 
-            if (!usuario.trim()) {
-                alert('Por favor ingresa tu nombre');
+        // Verificar si hay usuario guardado al cargar la página
+        window.addEventListener('load', () => {
+            const usuario = localStorage.getItem('usuarioActual');
+            if (usuario) {
+                usuarioActual = usuario;
+                mostrarUsuarioLogueado();
+            }
+            cargarNotas();
+        });
+
+        async function login() {
+            const usuario = document.getElementById('loginUsuario').value;
+            const password = document.getElementById('loginPassword').value;
+
+            if (!usuario || !password) {
+                mostrarMensaje('❌ Ingresa usuario y contraseña', 'error');
                 return;
             }
+
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario, password })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    mostrarMensaje('❌ Usuario y/o contraseña equivocada', 'error');
+                    document.getElementById('loginPassword').value = '';
+                    return;
+                }
+
+                usuarioActual = usuario;
+                localStorage.setItem('usuarioActual', usuario);
+                mostrarMensaje('✅ Sesión iniciada correctamente', 'exito');
+                
+                setTimeout(() => {
+                    document.getElementById('mensaje').style.display = 'none';
+                    mostrarUsuarioLogueado();
+                    cargarNotas();
+                }, 1500);
+            } catch (error) {
+                console.error('Error en login:', error);
+                mostrarMensaje('❌ Error al conectar', 'error');
+            }
+        }
+
+        function mostrarRegistro() {
+            const usuario = prompt('Nuevo usuario:');
+            if (!usuario) return;
+
+            const password = prompt('Contraseña:');
+            if (!password) return;
+
+            registrar(usuario, password);
+        }
+
+        async function registrar(usuario, password) {
+            try {
+                const res = await fetch('/registrar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario, password })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    mostrarMensaje('❌ ' + (data.error || 'Error al registrar'), 'error');
+                    return;
+                }
+
+                mostrarMensaje('✅ Se registró correctamente. Inicie sesión con sus datos', 'exito');
+                document.getElementById('loginUsuario').value = usuario;
+                document.getElementById('loginPassword').value = '';
+                document.getElementById('loginPassword').focus();
+
+                setTimeout(() => {
+                    document.getElementById('mensaje').style.display = 'none';
+                }, 4000);
+            } catch (error) {
+                console.error('Error en registro:', error);
+                mostrarMensaje('❌ Error al conectar', 'error');
+            }
+        }
+
+        function mostrarMensaje(texto, tipo) {
+            const div = document.getElementById('mensaje');
+            div.textContent = texto;
+            div.style.display = 'block';
+            div.style.fontWeight = 'bold';
+
+            if (tipo === 'exito') {
+                div.style.backgroundColor = '#d4edda';
+                div.style.color = '#155724';
+                div.style.border = '1px solid #c3e6cb';
+            } else if (tipo === 'error') {
+                div.style.backgroundColor = '#f8d7da';
+                div.style.color = '#721c24';
+                div.style.border = '1px solid #f5c6cb';
+            }
+        }
+
+        function logout() {
+            usuarioActual = null;
+            localStorage.removeItem('usuarioActual');
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('usuarioLogueado').style.display = 'none';
+            document.getElementById('loginUsuario').value = '';
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('usuarioInput').disabled = true;
+            document.getElementById('notaInput').disabled = true;
+            document.getElementById('btnAgregar').disabled = true;
+            document.getElementById('mensaje').style.display = 'none';
+            cargarNotas();
+        }
+
+        function mostrarUsuarioLogueado() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('usuarioLogueado').style.display = 'block';
+            document.getElementById('usuarioNombre').textContent = `👤 ${usuarioActual}`;
+            document.getElementById('usuarioInput').disabled = false;
+            document.getElementById('usuarioInput').value = usuarioActual;
+            document.getElementById('notaInput').disabled = false;
+            document.getElementById('btnAgregar').disabled = false;
+        }
+
+        async function agregarNota() {
+            if (!usuarioActual) {
+                alert('Debes iniciar sesión');
+                return;
+            }
+
+            const input = document.getElementById('notaInput');
 
             if (!input.value.trim()) {
                 alert('La nota no puede estar vacía');
@@ -45,10 +176,8 @@
             try {
                 const res = await fetch('/agregar', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ usuario: usuario.trim(), texto: input.value })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario: usuarioActual, texto: input.value })
                 });
 
                 if (!res.ok) {
@@ -75,7 +204,6 @@
                 }
 
                 const notas = await res.json();
-                console.log('Notas cargadas:', notas);
 
                 const lista = document.getElementById('listaNotas');
                 lista.innerHTML = '';
@@ -92,14 +220,12 @@
                     li.style.backgroundColor = '#f5f5f5';
                     li.style.borderRadius = '5px';
 
-                    // Usuario
                     const usuario = document.createElement('div');
-                    usuario.textContent = `👤 ${nota.usuario || 'Anónimo'}`;
+                    usuario.textContent = `👤 ${nota.usuario}`;
                     usuario.style.fontWeight = 'bold';
                     usuario.style.marginBottom = '5px';
                     usuario.style.color = '#666';
 
-                    // Texto de la nota
                     const texto = document.createElement('span');
                     texto.textContent = nota.texto;
 
@@ -107,40 +233,15 @@
                     btnEliminar.textContent = '❌';
                     btnEliminar.style.marginLeft = '10px';
 
-                    btnEliminar.onclick = async () => {
-                        try {
-                            const res = await fetch(`/eliminar/${index}`, {
-                                method: 'DELETE'
-                            });
+                    if (usuarioActual && usuarioActual === nota.usuario) {
+                        btnEliminar.onclick = async () => {
+                            if (!confirm('¿Eliminar nota?')) return;
 
-                            if (!res.ok) {
-                                const error = await res.json();
-                                alert('Error: ' + error.error);
-                                return;
-                            }
-
-                            cargarNotas();
-                        } catch (error) {
-                            console.error('Error al eliminar:', error);
-                            alert('Error al eliminar la nota');
-                        }
-                    };
-
-                    const btnEditar = document.createElement('button');
-                    btnEditar.textContent = '✏️';
-                    btnEditar.style.marginLeft = '10px';
-
-                    btnEditar.onclick = async () => {
-                        const nuevoTexto = prompt('Editar nota:', nota.texto);
-
-                        if (nuevoTexto) {
                             try {
-                                const res = await fetch(`/editar/${index}`, {
-                                    method: 'PUT',
-                                    headers: {
-                                        'Content-Type': 'application/json'
-                                    },
-                                    body: JSON.stringify({ texto: nuevoTexto })
+                                const res = await fetch(`/eliminar/${index}`, {
+                                    method: 'DELETE',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ usuario: usuarioActual })
                                 });
 
                                 if (!res.ok) {
@@ -151,11 +252,46 @@
 
                                 cargarNotas();
                             } catch (error) {
-                                console.error('Error al editar:', error);
-                                alert('Error al editar la nota');
+                                console.error('Error al eliminar:', error);
+                                alert('Error al eliminar la nota');
                             }
-                        }
-                    };
+                        };
+                    } else {
+                        btnEliminar.style.display = 'none';
+                    }
+
+                    const btnEditar = document.createElement('button');
+                    btnEditar.textContent = '✏️';
+                    btnEditar.style.marginLeft = '10px';
+
+                    if (usuarioActual && usuarioActual === nota.usuario) {
+                        btnEditar.onclick = async () => {
+                            const nuevoTexto = prompt('Editar nota:', nota.texto);
+
+                            if (nuevoTexto) {
+                                try {
+                                    const res = await fetch(`/editar/${index}`, {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ usuario: usuarioActual, texto: nuevoTexto })
+                                    });
+
+                                    if (!res.ok) {
+                                        const error = await res.json();
+                                        alert('Error: ' + error.error);
+                                        return;
+                                    }
+
+                                    cargarNotas();
+                                } catch (error) {
+                                    console.error('Error al editar:', error);
+                                    alert('Error al editar la nota');
+                                }
+                            }
+                        };
+                    } else {
+                        btnEditar.style.display = 'none';
+                    }
 
                     li.appendChild(usuario);
                     li.appendChild(texto);
@@ -168,6 +304,4 @@
                 console.error('Error al cargar notas:', error);
             }
         }
-
-        cargarNotas();
     </script>
