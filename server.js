@@ -1,32 +1,26 @@
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
+const { MongoClient, ObjectId } = require('mongodb');
 const PORT = process.env.PORT || 3000;
 const app = express();
 
 app.use(express.json());
 
-// Base de datos (persistencia con notas.json)
-let notas = [];
-cargarNotas();
+// Configuración de MongoDB
+const MONGODB_URI = process.env.MONGODB_URI;
+let db = null;
+const COLLECTION_NAME = 'notas';
 
-function cargarNotas() {
+// Conectar a MongoDB
+async function conectarMongo() {
     try {
-        if (fs.existsSync('notas.json')) {
-            const data = fs.readFileSync('notas.json', 'utf-8');
-            notas = JSON.parse(data);
-        }
+        const client = new MongoClient(MONGODB_URI);
+        await client.connect();
+        db = client.db();
+        console.log('✅ Conectado a MongoDB');
     } catch (error) {
-        console.error('Error al cargar notas.json:', error);
-        notas = [];
-    }
-}
-
-function guardarNotas() {
-    try {
-        fs.writeFileSync('notas.json', JSON.stringify(notas, null, 2));
-    } catch (error) {
-        console.error('Error al guardar notas.json:', error);
+        console.error('❌ Error al conectar a MongoDB:', error);
+        process.exit(1);
     }
 }
 
@@ -36,12 +30,20 @@ app.get('/', (req, res) => {
 });
 
 // Ver notas
-app.get('/notas', (req, res) => {
-    res.json(notas);
+app.get('/notas', async (req, res) => {
+    try {
+        const notas = await db.collection(COLLECTION_NAME).find({}).toArray();
+        // Retornar solo el texto para compatibilidad con el frontend
+        const notasTexto = notas.map(nota => nota.texto);
+        res.json(notasTexto);
+    } catch (error) {
+        console.error('Error al obtener notas:', error);
+        res.status(500).json({ error: 'Error al obtener notas' });
+    }
 });
 
 // Agregar nota
-app.post('/agregar', (req, res) => {
+app.post('/agregar', async (req, res) => {
     try {
         const nota = req.body.texto;
 
@@ -54,10 +56,15 @@ app.post('/agregar', (req, res) => {
             return res.status(400).json({ error: 'La nota no puede estar vacía' });
         }
 
-        notas.push(nota.trim());
-        guardarNotas();
+        const result = await db.collection(COLLECTION_NAME).insertOne({
+            texto: nota.trim(),
+            fecha: new Date()
+        });
 
-        res.status(201).json({ mensaje: 'Nota agregada', notas });
+        const notas = await db.collection(COLLECTION_NAME).find({}).toArray();
+        const notasTexto = notas.map(n => n.texto);
+
+        res.status(201).json({ mensaje: 'Nota agregada', notas: notasTexto });
     } catch (error) {
         console.error('Error al agregar nota:', error);
         res.status(500).json({ error: 'Error interno del servidor' });
@@ -65,20 +72,25 @@ app.post('/agregar', (req, res) => {
 });
 
 // Eliminar nota
-app.delete('/eliminar/:index', (req, res) => {
+app.delete('/eliminar/:index', async (req, res) => {
     try {
         const index = parseInt(req.params.index);
+
+        // Obtener todas las notas
+        const notas = await db.collection(COLLECTION_NAME).find({}).toArray();
 
         // Validación
         if (isNaN(index) || index < 0 || index >= notas.length) {
             return res.status(400).json({ error: 'Índice inválido' });
         }
 
-        const notaEliminada = notas[index];
-        notas.splice(index, 1);
-        guardarNotas();
+        const notaAEliminar = notas[index];
+        await db.collection(COLLECTION_NAME).deleteOne({ _id: notaAEliminar._id });
 
-        res.json({ mensaje: 'Nota eliminada', notaEliminada, notas });
+        const notasActualizadas = await db.collection(COLLECTION_NAME).find({}).toArray();
+        const notasTexto = notasActualizadas.map(n => n.texto);
+
+        res.json({ mensaje: 'Nota eliminada', notaEliminada: notaAEliminar.texto, notas: notasTexto });
     } catch (error) {
         console.error('Error al eliminar nota:', error);
         res.status(500).json({ error: 'Error interno del servidor' });
@@ -86,10 +98,13 @@ app.delete('/eliminar/:index', (req, res) => {
 });
 
 // Editar nota
-app.put('/editar/:index', (req, res) => {
+app.put('/editar/:index', async (req, res) => {
     try {
         const index = parseInt(req.params.index);
         const nuevoTexto = req.body.texto;
+
+        // Obtener todas las notas
+        const notas = await db.collection(COLLECTION_NAME).find({}).toArray();
 
         // Validación de índice
         if (isNaN(index) || index < 0 || index >= notas.length) {
@@ -105,17 +120,25 @@ app.put('/editar/:index', (req, res) => {
             return res.status(400).json({ error: 'La nota no puede estar vacía' });
         }
 
-        const notaAnterior = notas[index];
-        notas[index] = nuevoTexto.trim();
-        guardarNotas();
+        const notaAEditar = notas[index];
+        const notaAnterior = notaAEditar.texto;
 
-        res.json({ mensaje: 'Nota editada', notaAnterior, notaNueva: notas[index], notas });
+        await db.collection(COLLECTION_NAME).updateOne(
+            { _id: notaAEditar._id },
+            { $set: { texto: nuevoTexto.trim(), fechaModificacion: new Date() } }
+        );
+
+        const notasActualizadas = await db.collection(COLLECTION_NAME).find({}).toArray();
+        const notasTexto = notasActualizadas.map(n => n.texto);
+
+        res.json({ mensaje: 'Nota editada', notaAnterior, notaNueva: nuevoTexto.trim(), notas: notasTexto });
     } catch (error) {
         console.error('Error al editar nota:', error);
         res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`Servidor corriendo en puerto ${PORT}`);
+app.listen(PORT, async () => {
+    await conectarMongo();
+    console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
 });
