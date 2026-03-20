@@ -37,6 +37,25 @@ async function conectarMongo() {
     }
 }
 
+// Función para crear admin si no existe
+async function crearAdminSiNoExiste() {
+    try {
+        const adminExiste = await db.collection(USUARIOS_COLLECTION).findOne({ usuario: 'goldiyenadmin' });
+        if (!adminExiste) {
+            const passwordHash = await bcrypt.hash('41794399', 10);
+            await db.collection(USUARIOS_COLLECTION).insertOne({
+                usuario: 'goldiyenadmin',
+                password: passwordHash,
+                isAdmin: true,
+                fecha: new Date()
+            });
+            console.log('✅ Usuario admin creado: goldiyenadmin');
+        }
+    } catch (error) {
+        console.error('Error al crear admin:', error);
+    }
+}
+
 // Ruta principal (mostrar HTML)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
@@ -97,7 +116,11 @@ app.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
         }
 
-        res.json({ mensaje: 'Login exitoso', usuario });
+        res.json({ 
+            mensaje: 'Login exitoso', 
+            usuario,
+            isAdmin: usuarioDoc.isAdmin || false
+        });
     } catch (error) {
         console.error('Error en login:', error);
         res.status(500).json({ error: 'Error interno del servidor' });
@@ -168,6 +191,7 @@ app.delete('/eliminar/:index', async (req, res) => {
     try {
         const index = parseInt(req.params.index);
         const usuarioSolicitante = req.body.usuario;
+        const isAdmin = req.body.isAdmin || false;
 
         // Obtener todas las notas
         const notas = await db.collection(COLLECTION_NAME).find({}).toArray();
@@ -179,8 +203,8 @@ app.delete('/eliminar/:index', async (req, res) => {
 
         const notaAEliminar = notas[index];
 
-        // Validar que el usuario sea el propietario
-        if (notaAEliminar.usuario !== usuarioSolicitante) {
+        // Validar que sea admin O el propietario
+        if (!isAdmin && notaAEliminar.usuario !== usuarioSolicitante) {
             return res.status(403).json({ error: 'Solo puedes eliminar tus propias notas' });
         }
 
@@ -252,5 +276,6 @@ app.put('/editar/:index', async (req, res) => {
 
 app.listen(PORT, async () => {
     await conectarMongo();
+    await crearAdminSiNoExiste();
     console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
 });

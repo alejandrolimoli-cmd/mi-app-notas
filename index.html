@@ -37,12 +37,15 @@
 
     <script>
         let usuarioActual = null;
+        let esAdmin = false;
 
         // Verificar si hay usuario guardado al cargar la página
         window.addEventListener('load', () => {
             const usuario = localStorage.getItem('usuarioActual');
+            const admin = localStorage.getItem('esAdmin') === 'true';
             if (usuario) {
                 usuarioActual = usuario;
+                esAdmin = admin;
                 mostrarUsuarioLogueado();
             }
             cargarNotas();
@@ -73,7 +76,9 @@
                 }
 
                 usuarioActual = usuario;
+                esAdmin = data.isAdmin || false;
                 localStorage.setItem('usuarioActual', usuario);
+                localStorage.setItem('esAdmin', esAdmin);
                 mostrarMensaje('✅ Sesión iniciada correctamente', 'exito');
                 
                 setTimeout(() => {
@@ -175,7 +180,9 @@
 
         function logout() {
             usuarioActual = null;
+            esAdmin = false;
             localStorage.removeItem('usuarioActual');
+            localStorage.removeItem('esAdmin');
             document.getElementById('loginForm').style.display = 'block';
             document.getElementById('usuarioLogueado').style.display = 'none';
             document.getElementById('loginUsuario').value = '';
@@ -190,7 +197,12 @@
         function mostrarUsuarioLogueado() {
             document.getElementById('loginForm').style.display = 'none';
             document.getElementById('usuarioLogueado').style.display = 'block';
-            document.getElementById('usuarioNombre').textContent = `👤 ${usuarioActual}`;
+            
+            let nombreTexto = `👤 ${usuarioActual}`;
+            if (esAdmin) {
+                nombreTexto += ' <span style="background-color: #FFD700; color: black; padding: 2px 8px; border-radius: 3px; font-weight: bold; font-size: 11px; margin-left: 5px;">🔑 Admin</span>';
+            }
+            document.getElementById('usuarioNombre').innerHTML = nombreTexto;
             document.getElementById('usuarioInput').disabled = false;
             document.getElementById('usuarioInput').value = usuarioActual;
             document.getElementById('notaInput').disabled = false;
@@ -270,7 +282,8 @@
                     btnEliminar.textContent = '❌';
                     btnEliminar.style.marginLeft = '10px';
 
-                    if (usuarioActual && usuarioActual === nota.usuario) {
+                    // Mostrar botón si es admin O si es el propietario
+                    if (usuarioActual && (esAdmin || usuarioActual === nota.usuario)) {
                         btnEliminar.onclick = async () => {
                             if (!confirm('¿Eliminar nota?')) return;
 
@@ -278,7 +291,7 @@
                                 const res = await fetch(`/eliminar/${index}`, {
                                     method: 'DELETE',
                                     headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ usuario: usuarioActual })
+                                    body: JSON.stringify({ usuario: usuarioActual, isAdmin: esAdmin })
                                 });
 
                                 if (!res.ok) {
