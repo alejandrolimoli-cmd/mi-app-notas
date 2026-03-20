@@ -16,67 +16,123 @@
         async function agregarNota() {
             const input = document.getElementById('notaInput');
 
-            await fetch('/agregar', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ texto: input.value })
-            });
+            if (!input.value.trim()) {
+                alert('La nota no puede estar vacía');
+                return;
+            }
 
-            input.value = '';
-            cargarNotas();
+            try {
+                const res = await fetch('/agregar', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ texto: input.value })
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    alert('Error: ' + error.error);
+                    return;
+                }
+
+                input.value = '';
+                cargarNotas();
+            } catch (error) {
+                console.error('Error al agregar nota:', error);
+                alert('Error al conectar con el servidor');
+            }
         }
 
         async function cargarNotas() {
-            const res = await fetch('/notas');
-            const notas = await res.json();
+            try {
+                const res = await fetch('/notas');
+                
+                if (!res.ok) {
+                    console.error('Error al obtener notas:', res.status);
+                    return;
+                }
 
-            const lista = document.getElementById('listaNotas');
-            lista.innerHTML = '';
+                const notas = await res.json();
+                console.log('Notas cargadas:', notas);
 
-            notas.forEach((nota, index) => {
-                const li = document.createElement('li');
+                const lista = document.getElementById('listaNotas');
+                lista.innerHTML = '';
 
-                const texto = document.createElement('span');
-                texto.textContent = nota;
+                if (!Array.isArray(notas) || notas.length === 0) {
+                    lista.innerHTML = '<li style="color: gray;">No hay notas aún</li>';
+                    return;
+                }
 
-                const btnEliminar = document.createElement('button');
-                btnEliminar.textContent = '❌';
-                btnEliminar.style.marginLeft = '10px';
+                notas.forEach((nota, index) => {
+                    const li = document.createElement('li');
 
-                btnEliminar.onclick = async () => {
-                    await fetch(`/eliminar/${index}`, {
-                        method: 'DELETE'
-                    });
-                    cargarNotas();
-                };
+                    const texto = document.createElement('span');
+                    texto.textContent = nota;
 
-                const btnEditar = document.createElement('button');
-                btnEditar.textContent = '✏️';
-                btnEditar.style.marginLeft = '10px';
+                    const btnEliminar = document.createElement('button');
+                    btnEliminar.textContent = '❌';
+                    btnEliminar.style.marginLeft = '10px';
 
-                btnEditar.onclick = async () => {
-                    const nuevoTexto = prompt('Editar nota:', nota);
+                    btnEliminar.onclick = async () => {
+                        try {
+                            const res = await fetch(`/eliminar/${index}`, {
+                                method: 'DELETE'
+                            });
 
-                    if (nuevoTexto) {
-                        await fetch(`/editar/${index}`, {
-                            method: 'PUT',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({ texto: nuevoTexto })
-                        });
-                        cargarNotas();
-                    }
-                };
+                            if (!res.ok) {
+                                const error = await res.json();
+                                alert('Error: ' + error.error);
+                                return;
+                            }
 
-                li.appendChild(texto);
-                li.appendChild(btnEliminar);
-                li.appendChild(btnEditar);
+                            cargarNotas();
+                        } catch (error) {
+                            console.error('Error al eliminar:', error);
+                            alert('Error al eliminar la nota');
+                        }
+                    };
 
-                lista.appendChild(li);
-            });
+                    const btnEditar = document.createElement('button');
+                    btnEditar.textContent = '✏️';
+                    btnEditar.style.marginLeft = '10px';
+
+                    btnEditar.onclick = async () => {
+                        const nuevoTexto = prompt('Editar nota:', nota);
+
+                        if (nuevoTexto) {
+                            try {
+                                const res = await fetch(`/editar/${index}`, {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ texto: nuevoTexto })
+                                });
+
+                                if (!res.ok) {
+                                    const error = await res.json();
+                                    alert('Error: ' + error.error);
+                                    return;
+                                }
+
+                                cargarNotas();
+                            } catch (error) {
+                                console.error('Error al editar:', error);
+                                alert('Error al editar la nota');
+                            }
+                        }
+                    };
+
+                    li.appendChild(texto);
+                    li.appendChild(btnEliminar);
+                    li.appendChild(btnEditar);
+
+                    lista.appendChild(li);
+                });
+            } catch (error) {
+                console.error('Error al cargar notas:', error);
+            }
         }
 
         cargarNotas();
