@@ -55,19 +55,28 @@
 
         <!-- Lista de grupos -->
         <div id="listaGrupos"></div>
+    </div>
 
-        <!-- VISTA DEL GRUPO ABIERTO -->
-        <div id="vistaGrupo" style="display: none; margin-top: 20px; border: 2px solid #007bff; padding: 15px; border-radius: 5px; background-color: #f0f7ff;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h2 id="nombreGrupoVista">📁 Nombre del Grupo</h2>
-                <button onclick="cerrarGrupo()" style="padding: 8px 15px; background-color: #6c757d; color: white; border: none; border-radius: 3px; cursor: pointer;">← Volver a Grupos</button>
+    <!-- VISTA DEL GRUPO ABIERTO -->
+    <div id="vistaGrupo" style="display: none; margin-top: 20px; border: 2px solid #007bff; padding: 15px; border-radius: 5px; background-color: #f0f7ff;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h2 id="nombreGrupoVista">📁 Nombre del Grupo</h2>
+            <div>
+                <button id="btnEliminarGrupo" onclick="eliminarGrupoActual()" style="display:none; padding: 8px 15px; background-color: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer; margin-right: 5px;">
+                    🗑 Eliminar Grupo
+                </button>
+                <button onclick="cerrarGrupo()" style="padding: 8px 15px; background-color: #6c757d; color: white; border: none; border-radius: 3px; cursor: pointer;">
+                    ← Volver a Grupos
+                </button>
             </div>
-            
-            <input type="text" id="notaGrupoInput" placeholder="Escribe una nota para el grupo" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 3px;">
-            <button onclick="agregarNotaGrupo()" style="padding: 8px 15px; background-color: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer; margin-bottom: 15px;">➕ Agregar Nota al Grupo</button>
-            
-            <div id="listaNotasGrupo"></div>
         </div>
+
+        <input type="text" id="notaGrupoInput" placeholder="Escribe una nota para el grupo" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 3px;">
+        <button onclick="agregarNotaGrupo()" style="padding: 8px 15px; background-color: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer; margin-bottom: 15px;">
+            ➕ Agregar Nota al Grupo
+        </button>
+
+        <div id="listaNotasGrupo"></div>
     </div>
 
     <!-- TAB de Mis Notas -->
@@ -538,7 +547,7 @@
 
                     const btnAbrir = document.createElement('button');
                     btnAbrir.textContent = '👁️ Ver Notas';
-                    btnAbrir.onclick = () => abrirGrupo(grupo.id, grupo.nombre);
+                    btnAbrir.onclick = () => abrirGrupo(grupo.id, grupo.nombre, grupo.esCreador);
                     btnAbrir.style.padding = '5px 10px';
                     btnAbrir.style.backgroundColor = '#007bff';
                     btnAbrir.style.color = 'white';
@@ -577,6 +586,7 @@
             document.getElementById('notasTab').style.display = 'block';
             document.getElementById('gruposTab').style.display = 'block';
             document.getElementById('notaGrupoInput').value = '';
+            document.getElementById('btnEliminarGrupo').style.display = 'none';
         }
 
         async function cargarNotasGrupo() {
@@ -726,4 +736,34 @@
                 alert('Error al conectar con el servidor');
             }
         }
+
+        async function eliminarGrupoActual() {
+            if (!grupoActual) return;
+
+            if (!confirm('¿Seguro que quieres eliminar este grupo?')) return;
+
+            try {
+                const res = await fetch(`/grupo/${grupoActual}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario: usuarioActual, isAdmin: esAdmin })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+
+                mostrarMensaje('✅ Grupo eliminado correctamente', 'exito');
+                cerrarGrupo();
+                cargarGrupos();
+            } catch (error) {
+                console.error('Error al eliminar grupo:', error);
+                alert('Error al eliminar el grupo');
+            }
+        }
     </script>
+</body>
+</html>
