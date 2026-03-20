@@ -14,12 +14,18 @@ const COLLECTION_NAME = 'notas';
 // Conectar a MongoDB
 async function conectarMongo() {
     if (!MONGODB_URI) {
-        console.error('❌ Error: MONGODB_URI no está definida');
+        console.error('❌ Error: mongodb_url no está definida');
         process.exit(1);
     }
 
     try {
-        const client = new MongoClient(MONGODB_URI);
+        const client = new MongoClient(MONGODB_URI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+            serverSelectionTimeoutMS: 10000,
+            socketTimeoutMS: 45000,
+        });
+        
         await client.connect();
         db = client.db();
         console.log('✅ Conectado a MongoDB');
