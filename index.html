@@ -55,6 +55,19 @@
 
         <!-- Lista de grupos -->
         <div id="listaGrupos"></div>
+
+        <!-- VISTA DEL GRUPO ABIERTO -->
+        <div id="vistaGrupo" style="display: none; margin-top: 20px; border: 2px solid #007bff; padding: 15px; border-radius: 5px; background-color: #f0f7ff;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 id="nombreGrupoVista">📁 Nombre del Grupo</h2>
+                <button onclick="cerrarGrupo()" style="padding: 8px 15px; background-color: #6c757d; color: white; border: none; border-radius: 3px; cursor: pointer;">← Volver a Grupos</button>
+            </div>
+            
+            <input type="text" id="notaGrupoInput" placeholder="Escribe una nota para el grupo" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 3px;">
+            <button onclick="agregarNotaGrupo()" style="padding: 8px 15px; background-color: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer; margin-bottom: 15px;">➕ Agregar Nota al Grupo</button>
+            
+            <div id="listaNotasGrupo"></div>
+        </div>
     </div>
 
     <!-- TAB de Mis Notas -->
@@ -549,6 +562,168 @@
 
         async function abrirGrupo(grupoId, nombreGrupo) {
             grupoActual = grupoId;
-            alert(`Grupo ${nombreGrupo} abierto - Próximamente podrás ver y agregar notas aquí`);
+            document.getElementById('gruposTab').style.display = 'none';
+            document.getElementById('notasTab').style.display = 'none';
+            document.getElementById('vistaGrupo').style.display = 'block';
+            document.getElementById('nombreGrupoVista').textContent = `📁 ${nombreGrupo}`;
+            document.getElementById('notaGrupoInput').focus();
+            
+            await cargarNotasGrupo();
+        }
+
+        function cerrarGrupo() {
+            grupoActual = null;
+            document.getElementById('vistaGrupo').style.display = 'none';
+            document.getElementById('notasTab').style.display = 'block';
+            document.getElementById('gruposTab').style.display = 'block';
+            document.getElementById('notaGrupoInput').value = '';
+        }
+
+        async function cargarNotasGrupo() {
+            if (!grupoActual) return;
+
+            try {
+                const res = await fetch(`/grupo/${grupoActual}/notas`);
+                
+                if (!res.ok) {
+                    console.error('Error al obtener notas del grupo:', res.status);
+                    return;
+                }
+
+                const notas = await res.json();
+                const lista = document.getElementById('listaNotasGrupo');
+                lista.innerHTML = '';
+
+                if (!Array.isArray(notas) || notas.length === 0) {
+                    lista.innerHTML = '<p style="color: gray;">No hay notas en este grupo aún</p>';
+                    return;
+                }
+
+                notas.forEach((nota, index) => {
+                    const li = document.createElement('li');
+                    li.style.marginBottom = '15px';
+                    li.style.padding = '10px';
+                    li.style.backgroundColor = '#fff';
+                    li.style.borderRadius = '5px';
+                    li.style.border = '1px solid #ddd';
+
+                    const usuario = document.createElement('div');
+                    usuario.textContent = `👤 ${nota.usuario}`;
+                    usuario.style.fontWeight = 'bold';
+                    usuario.style.marginBottom = '5px';
+                    usuario.style.color = '#666';
+
+                    const texto = document.createElement('span');
+                    texto.textContent = nota.texto;
+
+                    const btnEliminar = document.createElement('button');
+                    btnEliminar.textContent = '❌';
+                    btnEliminar.style.marginLeft = '10px';
+                    btnEliminar.style.padding = '2px 8px';
+                    btnEliminar.style.cursor = 'pointer';
+
+                    // Mostrar botón si es admin O si es el propietario
+                    if (usuarioActual && (esAdmin || usuarioActual === nota.usuario)) {
+                        btnEliminar.onclick = async () => {
+                            if (!confirm('¿Eliminar nota?')) return;
+
+                            try {
+                                const res = await fetch(`/grupo/${grupoActual}/eliminar/${nota.id}`, {
+                                    method: 'DELETE',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ usuario: usuarioActual, isAdmin: esAdmin })
+                                });
+
+                                if (!res.ok) {
+                                    const error = await res.json();
+                                    alert('Error: ' + error.error);
+                                    return;
+                                }
+
+                                cargarNotasGrupo();
+                            } catch (error) {
+                                console.error('Error al eliminar:', error);
+                                alert('Error al eliminar la nota');
+                            }
+                        };
+                    } else {
+                        btnEliminar.style.display = 'none';
+                    }
+
+                    const btnEditar = document.createElement('button');
+                    btnEditar.textContent = '✏️';
+                    btnEditar.style.marginLeft = '5px';
+                    btnEditar.style.padding = '2px 8px';
+                    btnEditar.style.cursor = 'pointer';
+
+                    if (usuarioActual && usuarioActual === nota.usuario) {
+                        btnEditar.onclick = async () => {
+                            const nuevoTexto = prompt('Editar nota:', nota.texto);
+
+                            if (nuevoTexto) {
+                                try {
+                                    const res = await fetch(`/grupo/${grupoActual}/editar/${nota.id}`, {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ usuario: usuarioActual, texto: nuevoTexto })
+                                    });
+
+                                    if (!res.ok) {
+                                        const error = await res.json();
+                                        alert('Error: ' + error.error);
+                                        return;
+                                    }
+
+                                    cargarNotasGrupo();
+                                } catch (error) {
+                                    console.error('Error al editar:', error);
+                                    alert('Error al editar la nota');
+                                }
+                            }
+                        };
+                    } else {
+                        btnEditar.style.display = 'none';
+                    }
+
+                    li.appendChild(usuario);
+                    li.appendChild(texto);
+                    li.appendChild(btnEliminar);
+                    li.appendChild(btnEditar);
+
+                    lista.appendChild(li);
+                });
+            } catch (error) {
+                console.error('Error al cargar notas del grupo:', error);
+            }
+        }
+
+        async function agregarNotaGrupo() {
+            const input = document.getElementById('notaGrupoInput');
+
+            if (!input.value.trim()) {
+                alert('La nota no puede estar vacía');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/grupo/${grupoActual}/agregar-nota`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario: usuarioActual, texto: input.value })
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    alert('Error: ' + error.error);
+                    return;
+                }
+
+                input.value = '';
+                input.focus();
+                cargarNotasGrupo();
+            } catch (error) {
+                console.error('Error al agregar nota al grupo:', error);
+                alert('Error al conectar con el servidor');
+            }
         }
     </script>
