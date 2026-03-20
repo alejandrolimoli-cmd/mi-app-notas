@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mi App de Notas 😎</title>
+</head>
+<body>
+
+    <h1>📝 Mis Notas</h1>
+
+    <input type="text" id="notaInput" placeholder="Escribe una nota">
+    <button onclick="agregarNota()">Agregar</button>
+
+    <ul id="listaNotas"></ul>
+
+    <script>
+        async function agregarNota() {
+            const input = document.getElementById('notaInput');
+
+            await fetch('/agregar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ texto: input.value })
+            });
+
+            input.value = '';
+            cargarNotas();
+        }
+
+        async function cargarNotas() {
+            const res = await fetch('/notas');
+            const notas = await res.json();
+
+            const lista = document.getElementById('listaNotas');
+            lista.innerHTML = '';
+
+            notas.forEach((nota, index) => {
+                const li = document.createElement('li');
+
+                const texto = document.createElement('span');
+                texto.textContent = nota;
+
+                const btnEliminar = document.createElement('button');
+                btnEliminar.textContent = '❌';
+                btnEliminar.style.marginLeft = '10px';
+
+                btnEliminar.onclick = async () => {
+                    await fetch(`/eliminar/${index}`, {
+                        method: 'DELETE'
+                    });
+                    cargarNotas();
+                };
+
+                const btnEditar = document.createElement('button');
+                btnEditar.textContent = '✏️';
+                btnEditar.style.marginLeft = '10px';
+
+                btnEditar.onclick = async () => {
+                    const nuevoTexto = prompt('Editar nota:', nota);
+
+                    if (nuevoTexto) {
+                        await fetch(`/editar/${index}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ texto: nuevoTexto })
+                        });
+                        cargarNotas();
+                    }
+                };
+
+                li.appendChild(texto);
+                li.appendChild(btnEliminar);
+                li.appendChild(btnEditar);
+
+                lista.appendChild(li);
+            });
+        }
+
+        cargarNotas();
+    </script>
