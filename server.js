@@ -518,6 +518,32 @@ app.put('/grupo/:grupoId/editar/:notaId', async (req, res) => {
     }
 });
 
+// Eliminar grupo
+app.delete('/grupo/:grupoId', async (req, res) => {
+    try {
+        const grupoId = new ObjectId(req.params.grupoId);
+        const usuario = req.body.usuario;
+        const isAdmin = req.body.isAdmin || false;
+
+        const grupo = await db.collection(GRUPOS_COLLECTION).findOne({ _id: grupoId });
+        if (!grupo) {
+            return res.status(404).json({ error: 'Grupo no encontrado' });
+        }
+
+        // Solo el creador o admin puede eliminar el grupo
+        if (!isAdmin && grupo.creador !== usuario) {
+            return res.status(403).json({ error: 'Solo el creador del grupo puede eliminarlo' });
+        }
+
+        await db.collection(GRUPOS_COLLECTION).deleteOne({ _id: grupoId });
+
+        res.json({ mensaje: 'Grupo eliminado correctamente' });
+    } catch (error) {
+        console.error('Error al eliminar grupo:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
 app.listen(PORT, async () => {
     await conectarMongo();
     await crearAdminSiNoExiste();
