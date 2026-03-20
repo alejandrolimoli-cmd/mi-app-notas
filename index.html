@@ -5,11 +5,25 @@
 </head>
 <body>
 
-    <h1>📝 Mis Notas</h1>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h1>📝 Mis Notas</h1>
+        <div id="loginPanel" style="border: 1px solid #ccc; padding: 10px; border-radius: 5px;">
+            <div id="loginForm">
+                <input type="text" id="loginUsuario" placeholder="Usuario" style="margin-right: 5px;">
+                <input type="password" id="loginPassword" placeholder="Contraseña" style="margin-right: 5px;">
+                <button onclick="login()">Ingresar</button>
+                <button onclick="mostrarRegistro()">Registrar</button>
+            </div>
+            <div id="usuarioLogueado" style="display: none;">
+                <span id="usuarioNombre" style="font-weight: bold;"></span>
+                <button onclick="logout()" style="margin-left: 10px;">Salir</button>
+            </div>
+        </div>
+    </div>
 
-    <input type="text" id="usuarioInput" placeholder="Tu nombre" style="margin-bottom: 10px;">
-    <input type="text" id="notaInput" placeholder="Escribe una nota">
-    <button onclick="agregarNota()">Agregar</button>
+    <input type="text" id="usuarioInput" placeholder="Tu nombre" style="margin-bottom: 10px;" disabled>
+    <input type="text" id="notaInput" placeholder="Escribe una nota" disabled>
+    <button onclick="agregarNota()" disabled id="btnAgregar">Agregar</button>
 
     <ul id="listaNotas"></ul>
 

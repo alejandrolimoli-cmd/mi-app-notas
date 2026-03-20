@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const { MongoClient, ObjectId } = require('mongodb');
+const bcrypt = require('bcryptjs');
 const PORT = process.env.PORT || 3000;
 const app = express();
 
@@ -10,6 +11,7 @@ app.use(express.json());
 const MONGODB_URI = process.env.mongodb_url;
 let db = null;
 const COLLECTION_NAME = 'notas';
+const USUARIOS_COLLECTION = 'usuarios';
 
 // Conectar a MongoDB
 async function conectarMongo() {
@@ -38,6 +40,68 @@ async function conectarMongo() {
 // Ruta principal (mostrar HTML)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Registrar usuario
+app.post('/registrar', async (req, res) => {
+    try {
+        const usuario = req.body.usuario;
+        const password = req.body.password;
+
+        if (!usuario || !password) {
+            return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
+        }
+
+        // Verificar si el usuario ya existe
+        const usuarioExistente = await db.collection(USUARIOS_COLLECTION).findOne({ usuario });
+        if (usuarioExistente) {
+            return res.status(400).json({ error: 'El usuario ya existe' });
+        }
+
+        // Hashear contraseña
+        const passwordHash = await bcrypt.hash(password, 10);
+
+        // Guardar usuario
+        await db.collection(USUARIOS_COLLECTION).insertOne({
+            usuario,
+            password: passwordHash,
+            fecha: new Date()
+        });
+
+        res.status(201).json({ mensaje: 'Usuario registrado exitosamente' });
+    } catch (error) {
+        console.error('Error al registrar:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Login
+app.post('/login', async (req, res) => {
+    try {
+        const usuario = req.body.usuario;
+        const password = req.body.password;
+
+        if (!usuario || !password) {
+            return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
+        }
+
+        // Buscar usuario
+        const usuarioDoc = await db.collection(USUARIOS_COLLECTION).findOne({ usuario });
+        if (!usuarioDoc) {
+            return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+        }
+
+        // Validar contraseña
+        const passwordValida = await bcrypt.compare(password, usuarioDoc.password);
+        if (!passwordValida) {
+            return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+        }
+
+        res.json({ mensaje: 'Login exitoso', usuario });
+    } catch (error) {
+        console.error('Error en login:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
 });
 
 // Ver notas
@@ -103,6 +167,7 @@ app.post('/agregar', async (req, res) => {
 app.delete('/eliminar/:index', async (req, res) => {
     try {
         const index = parseInt(req.params.index);
+        const usuarioSolicitante = req.body.usuario;
 
         // Obtener todas las notas
         const notas = await db.collection(COLLECTION_NAME).find({}).toArray();
@@ -113,6 +178,12 @@ app.delete('/eliminar/:index', async (req, res) => {
         }
 
         const notaAEliminar = notas[index];
+
+        // Validar que el usuario sea el propietario
+        if (notaAEliminar.usuario !== usuarioSolicitante) {
+            return res.status(403).json({ error: 'Solo puedes eliminar tus propias notas' });
+        }
+
         await db.collection(COLLECTION_NAME).deleteOne({ _id: notaAEliminar._id });
 
         const notasActualizadas = await db.collection(COLLECTION_NAME).find({}).toArray();
@@ -133,6 +204,7 @@ app.put('/editar/:index', async (req, res) => {
     try {
         const index = parseInt(req.params.index);
         const nuevoTexto = req.body.texto;
+        const usuarioSolicitante = req.body.usuario;
 
         // Obtener todas las notas
         const notas = await db.collection(COLLECTION_NAME).find({}).toArray();
@@ -152,6 +224,12 @@ app.put('/editar/:index', async (req, res) => {
         }
 
         const notaAEditar = notas[index];
+
+        // Validar que el usuario sea el propietario
+        if (notaAEditar.usuario !== usuarioSolicitante) {
+            return res.status(403).json({ error: 'Solo puedes editar tus propias notas' });
+        }
+
         const notaAnterior = notaAEditar.texto;
 
         await db.collection(COLLECTION_NAME).updateOne(
