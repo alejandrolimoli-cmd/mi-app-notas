@@ -7,19 +7,24 @@ const app = express();
 app.use(express.json());
 
 // Configuración de MongoDB
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.mongodb_url;
 let db = null;
 const COLLECTION_NAME = 'notas';
 
 // Conectar a MongoDB
 async function conectarMongo() {
+    if (!MONGODB_URI) {
+        console.error('❌ Error: MONGODB_URI no está definida');
+        process.exit(1);
+    }
+
     try {
         const client = new MongoClient(MONGODB_URI);
         await client.connect();
         db = client.db();
         console.log('✅ Conectado a MongoDB');
     } catch (error) {
-        console.error('❌ Error al conectar a MongoDB:', error);
+        console.error('❌ Error al conectar a MongoDB:', error.message);
         process.exit(1);
     }
 }
