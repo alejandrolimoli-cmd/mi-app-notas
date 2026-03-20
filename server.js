@@ -6,8 +6,29 @@ const app = express();
 
 app.use(express.json());
 
-// Base de datos falsa (por ahora)
+// Base de datos (persistencia con notas.json)
 let notas = [];
+cargarNotas();
+
+function cargarNotas() {
+    try {
+        if (fs.existsSync('notas.json')) {
+            const data = fs.readFileSync('notas.json', 'utf-8');
+            notas = JSON.parse(data);
+        }
+    } catch (error) {
+        console.error('Error al cargar notas.json:', error);
+        notas = [];
+    }
+}
+
+function guardarNotas() {
+    try {
+        fs.writeFileSync('notas.json', JSON.stringify(notas, null, 2));
+    } catch (error) {
+        console.error('Error al guardar notas.json:', error);
+    }
+}
 
 // Ruta principal (mostrar HTML)
 app.get('/', (req, res) => {
@@ -21,34 +42,80 @@ app.get('/notas', (req, res) => {
 
 // Agregar nota
 app.post('/agregar', (req, res) => {
-    const nota = req.body.texto;
-    notas.push(nota);
+    try {
+        const nota = req.body.texto;
 
-    fs.writeFileSync('notas.json', JSON.stringify(notas));
+        // Validación
+        if (!nota || typeof nota !== 'string') {
+            return res.status(400).json({ error: 'El texto es requerido y debe ser un string' });
+        }
 
-    res.send('Nota agregada');
+        if (nota.trim() === '') {
+            return res.status(400).json({ error: 'La nota no puede estar vacía' });
+        }
+
+        notas.push(nota.trim());
+        guardarNotas();
+
+        res.status(201).json({ mensaje: 'Nota agregada', notas });
+    } catch (error) {
+        console.error('Error al agregar nota:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
 });
+
 // Eliminar nota
 app.delete('/eliminar/:index', (req, res) => {
-    const index = req.params.index;
+    try {
+        const index = parseInt(req.params.index);
 
-    notas.splice(index, 1);
+        // Validación
+        if (isNaN(index) || index < 0 || index >= notas.length) {
+            return res.status(400).json({ error: 'Índice inválido' });
+        }
 
-    fs.writeFileSync('notas.json', JSON.stringify(notas));
+        const notaEliminada = notas[index];
+        notas.splice(index, 1);
+        guardarNotas();
 
-    res.send('Nota eliminada');
+        res.json({ mensaje: 'Nota eliminada', notaEliminada, notas });
+    } catch (error) {
+        console.error('Error al eliminar nota:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
 });
+
 // Editar nota
 app.put('/editar/:index', (req, res) => {
-    const index = req.params.index;
-    const nuevoTexto = req.body.texto;
+    try {
+        const index = parseInt(req.params.index);
+        const nuevoTexto = req.body.texto;
 
-    notas[index] = nuevoTexto;
+        // Validación de índice
+        if (isNaN(index) || index < 0 || index >= notas.length) {
+            return res.status(400).json({ error: 'Índice inválido' });
+        }
 
-    fs.writeFileSync('notas.json', JSON.stringify(notas));
+        // Validación de texto
+        if (!nuevoTexto || typeof nuevoTexto !== 'string') {
+            return res.status(400).json({ error: 'El texto es requerido y debe ser un string' });
+        }
 
-    res.send('Nota editada');
+        if (nuevoTexto.trim() === '') {
+            return res.status(400).json({ error: 'La nota no puede estar vacía' });
+        }
+
+        const notaAnterior = notas[index];
+        notas[index] = nuevoTexto.trim();
+        guardarNotas();
+
+        res.json({ mensaje: 'Nota editada', notaAnterior, notaNueva: notas[index], notas });
+    } catch (error) {
+        console.error('Error al editar nota:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
 });
+
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en puerto ${PORT}`);
 });
