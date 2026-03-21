@@ -569,12 +569,29 @@
             }
         }
 
-        async function abrirGrupo(grupoId, nombreGrupo) {
-            grupoActual = grupoId;
-            document.getElementById('gruposTab').style.display = 'none';
-            document.getElementById('notasTab').style.display = 'none';
-            document.getElementById('vistaGrupo').style.display = 'block';
-            document.getElementById('nombreGrupoVista').textContent = `📁 ${nombreGrupo}`;
+        async function abrirGrupo(grupoId, nombreGrupo, esCreador) {
+    grupoActual = grupoId;
+
+    document.getElementById('gruposTab').style.display = 'none';
+    document.getElementById('notasTab').style.display = 'none';
+    document.getElementById('vistaGrupo').style.display = 'block';
+
+    document.getElementById('nombreGrupoVista').textContent = `📁 ${nombreGrupo}`;
+    document.getElementById('notaGrupoInput').focus();
+
+    const btnEliminarGrupo = document.getElementById('btnEliminarGrupo');
+
+    console.log("esAdmin:", esAdmin);
+    console.log("esCreador:", esCreador);
+
+    if (esAdmin || esCreador) {
+        btnEliminarGrupo.style.display = 'inline-block';
+    } else {
+        btnEliminarGrupo.style.display = 'none';
+    }
+
+    await cargarNotasGrupo();
+}`;
             document.getElementById('notaGrupoInput').focus();
             
             await cargarNotasGrupo();
