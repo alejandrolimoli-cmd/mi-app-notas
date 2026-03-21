@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcryptjs');
+require('dotenv').config();
 const PORT = process.env.PORT || 3000;
 const app = express();
 
